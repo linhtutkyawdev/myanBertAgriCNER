@@ -1,0 +1,8 @@
+{
+    "base_model": "google/mt5-small",
+    "seed": 42,
+    "epochs": 1,
+    "learning_rate": 0.0003,
+    "batch_size": 4,
+    "max_sequence_length": 128
+}
