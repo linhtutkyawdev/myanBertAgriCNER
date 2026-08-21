@@ -1,0 +1,20 @@
+[project]
+name = "mycner"
+version = "0.1.0"
+description = "Burmese Agricultural Concept NER"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "transformers",
+    "datasets",
+    "sentencepiece",
+    "protobuf",
+    "seqeval",
+    "evaluate",
+    "accelerate",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
