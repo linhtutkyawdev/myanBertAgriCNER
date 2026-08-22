@@ -179,7 +179,7 @@ def main():
     training_args = Seq2SeqTrainingArguments(
         output_dir=checkpoints_dir,
         eval_strategy="epoch",
-        learning_rate=args.learning_rate,
+        learning_rate=learning_rate,
         per_device_train_batch_size=train_batch_size,
         per_device_eval_batch_size=eval_batch_size,
         weight_decay=args.weight_decay,
@@ -199,7 +199,7 @@ def main():
         report_to=args.report_to,
         dataloader_num_workers=2 if cuda_available else 0,
         disable_tqdm=False,
-        optim="adafactor",  # Use Adafactor optimizer for improved training stability of mT5
+        optim="adamw_torch",  # Use standard, extremely stable AdamW for fine-tuning
     )
     
     data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
