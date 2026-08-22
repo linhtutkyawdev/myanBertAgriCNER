@@ -20,8 +20,15 @@ def predict_mt5(text: str):
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
     
-    # Tokenize input
-    inputs = tokenizer(text, return_tensors="pt")
+    # Align model to GPU if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    
+    # Prepend the task prefix "cner: " to match the fine-tuning input format
+    formatted_text = f"cner: {text}"
+    
+    # Tokenize input and place on device
+    inputs = tokenizer(formatted_text, return_tensors="pt").to(device)
     
     # Generate
     with torch.no_grad():

@@ -4,13 +4,13 @@ from seqeval.metrics import classification_report, f1_score, precision_score, re
 def parse_mt5_output(text: str) -> list:
     """
     Parses a generated mT5 string back into a list of dictionaries with 'text' and 'label'.
-    Example: "စပါး<CROP> ရာတွင် ယူရီးယား<FERT>" ->
+    Example: "စပါး[CROP] ရာတွင် ယူရီးယား[FERT]" ->
     [{'text': 'စပါး', 'label': 'CROP'}, {'text': 'ရာတွင်', 'label': 'O'}, {'text': 'ယူရီးယား', 'label': 'FERT'}]
     """
     entities = []
     parts = text.strip().split()
     for part in parts:
-        match = re.match(r"^(.+?)<([A-Z_]+)>$", part)
+        match = re.match(r"^(.+?)\[([A-Z_]+)\]$", part)
         if match:
             token = match.group(1)
             label = match.group(2)
