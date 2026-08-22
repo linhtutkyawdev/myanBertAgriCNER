@@ -99,10 +99,23 @@ def main():
     device_name = torch.cuda.get_device_name(0) if cuda_available else "CPU"
     logger.info(f"Training Device: {device_name}")
     
+    # Auto-configure memory configurations based on model size
+    is_base_model = "base" in args.model_name.lower()
+    
     if cuda_available:
         logger.info("🚀 CUDA GPU detected! Optimizing with FP16 and high-performance hyperparameters.")
-        train_batch_size = args.train_batch_size or 16
-        eval_batch_size = args.eval_batch_size or 16
+        if is_base_model:
+            logger.info("📦 Detecting 'base' size model. Applying memory-efficient configurations (Batch Size: 8, Accumulation: 2, Checkpointing: True) to prevent OOM on T4 GPUs.")
+            train_batch_size = args.train_batch_size or 8
+            eval_batch_size = args.eval_batch_size or 8
+            gradient_accumulation_steps = args.gradient_accumulation_steps or 2
+            use_gradient_checkpointing = True
+        else:
+            logger.info("⚡ Detecting 'small' size model. Applying standard fast configuration (Batch Size: 16).")
+            train_batch_size = args.train_batch_size or 16
+            eval_batch_size = args.eval_batch_size or 16
+            gradient_accumulation_steps = args.gradient_accumulation_steps or 1
+            use_gradient_checkpointing = False
         use_fp16 = True
         epochs = args.epochs or 5
         logging_steps = args.logging_steps or 50
@@ -110,6 +123,8 @@ def main():
         logger.info("⚠️ Running on CPU. Downscaling batch sizes and epochs to prevent overhead.")
         train_batch_size = args.train_batch_size or 4
         eval_batch_size = args.eval_batch_size or 4
+        gradient_accumulation_steps = args.gradient_accumulation_steps or 1
+        use_gradient_checkpointing = False
         use_fp16 = False
         epochs = args.epochs or 1
         logging_steps = args.logging_steps or 10
@@ -179,7 +194,8 @@ def main():
         fp16=use_fp16,
         use_cpu=not cuda_available,
         warmup_steps=warmup_steps,
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        gradient_checkpointing=use_gradient_checkpointing,
         report_to=args.report_to,
         dataloader_num_workers=2 if cuda_available else 0,
         disable_tqdm=False,
