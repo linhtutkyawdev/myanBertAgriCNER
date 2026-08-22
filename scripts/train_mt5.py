@@ -110,12 +110,15 @@ def main():
             eval_batch_size = args.eval_batch_size or 8
             gradient_accumulation_steps = args.gradient_accumulation_steps or 2
             use_gradient_checkpointing = True
+            # For mt5-base, a learning rate of 1e-4 is much more stable than 3e-4 to prevent NaN/divergence
+            learning_rate = args.learning_rate if args.learning_rate != 3e-4 else 1e-4
         else:
             logger.info("⚡ Detecting 'small' size model. Applying standard fast configuration (Batch Size: 16).")
             train_batch_size = args.train_batch_size or 16
             eval_batch_size = args.eval_batch_size or 16
             gradient_accumulation_steps = args.gradient_accumulation_steps or 1
             use_gradient_checkpointing = False
+            learning_rate = args.learning_rate
         use_fp16 = True
         epochs = args.epochs or 5
         logging_steps = args.logging_steps or 50
@@ -125,6 +128,7 @@ def main():
         eval_batch_size = args.eval_batch_size or 4
         gradient_accumulation_steps = args.gradient_accumulation_steps or 1
         use_gradient_checkpointing = False
+        learning_rate = args.learning_rate
         use_fp16 = False
         epochs = args.epochs or 1
         logging_steps = args.logging_steps or 10
