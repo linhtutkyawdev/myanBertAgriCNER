@@ -11,7 +11,7 @@ from mycner.data.converter import serialize_mt5
 from mycner.data.splitter import split_dataset
 
 def main():
-    raw_dir = Path("data/raw")
+    raw_dir = Path("data/raw/171_270_351_500_fixed")
     processed_dir = Path("data/processed")
     processed_dir.mkdir(parents=True, exist_ok=True)
     
