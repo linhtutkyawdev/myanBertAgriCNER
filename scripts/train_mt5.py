@@ -42,10 +42,18 @@ class ProductionLoggingCallback(TrainerCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
         if logs:
             if "loss" in logs:
-                logger.info(f"Step {state.global_step} | Training Loss: {logs['loss']:.4f}")
+                try:
+                    loss_val = float(logs['loss'])
+                    logger.info(f"Step {state.global_step} | Training Loss: {loss_val:.4f}")
+                except (ValueError, TypeError):
+                    logger.info(f"Step {state.global_step} | Training Loss: {logs['loss']}")
             if "eval_loss" in logs:
                 logger.info(f"--- Validation Metrics (Step {state.global_step}) ---")
-                logger.info(f"  Eval Loss: {logs['eval_loss']:.4f}")
+                try:
+                    eval_loss_val = float(logs['eval_loss'])
+                    logger.info(f"  Eval Loss: {eval_loss_val:.4f}")
+                except (ValueError, TypeError):
+                    logger.info(f"  Eval Loss: {logs['eval_loss']}")
                 for key in ["eval_precision", "eval_recall", "eval_f1", "eval_exact_match_count", "eval_invalid_generated_count"]:
                     if key in logs:
                         logger.info(f"  {key.replace('eval_', '').title()}: {logs[key]}")
@@ -102,8 +110,11 @@ def main():
     # Auto-configure memory configurations based on model size
     is_base_model = "base" in args.model_name.lower()
     
+    use_fp16 = False
+    use_bf16 = False
+    
     if cuda_available:
-        logger.info("🚀 CUDA GPU detected! Optimizing with FP16 and high-performance hyperparameters.")
+        logger.info("🚀 CUDA GPU detected! Optimizing precision and hyperparameters.")
         if is_base_model:
             logger.info("📦 Detecting 'base' size model. Applying memory-efficient configurations (Batch Size: 8, Accumulation: 2, Checkpointing: True) to prevent OOM on T4 GPUs.")
             train_batch_size = args.train_batch_size or 8
@@ -119,7 +130,17 @@ def main():
             gradient_accumulation_steps = args.gradient_accumulation_steps or 1
             use_gradient_checkpointing = False
             learning_rate = args.learning_rate
-        use_fp16 = True
+            
+        # Detect BF16 support (Ampere+ GPUs like A100, L4, etc.).
+        # T5/mT5 models are highly unstable with FP16, resulting in NaN/0.0 loss and NaN gradients.
+        # We use BF16 on supported hardware, or fallback to stable FP32 on older hardware (like T4).
+        if torch.cuda.is_bf16_supported():
+            logger.info("✨ GPU supports BF16! Activating BF16 training for maximum performance and stability.")
+            use_bf16 = True
+        else:
+            logger.info("⚠️ Legacy GPU (like T4) detected. Disabling FP16 and falling back to stable FP32 to prevent underflow/NaN loss issues in mT5.")
+            use_fp16 = False
+            
         epochs = args.epochs or 5
         logging_steps = args.logging_steps or 50
     else:
@@ -130,6 +151,7 @@ def main():
         use_gradient_checkpointing = False
         learning_rate = args.learning_rate
         use_fp16 = False
+        use_bf16 = False
         epochs = args.epochs or 1
         logging_steps = args.logging_steps or 10
 
@@ -144,6 +166,10 @@ def main():
     
     logger.info(f"Loading pretrained model: {args.model_name}")
     model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name)
+    
+    if use_gradient_checkpointing:
+        logger.info("🔒 Disabling use_cache in model config since gradient checkpointing is active.")
+        model.config.use_cache = False
     
     # HF Datasets creation
     train_dataset = Dataset.from_list(train_records)
@@ -196,6 +222,7 @@ def main():
         metric_for_best_model="f1",  # Optimize on Entity-Level F1 for best performance
         greater_is_better=True,
         fp16=use_fp16,
+        bf16=use_bf16,
         use_cpu=not cuda_available,
         warmup_steps=warmup_steps,
         gradient_accumulation_steps=gradient_accumulation_steps,
@@ -245,7 +272,7 @@ def main():
         processing_class=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
-        callbacks=[ProductionLoggingCallback],
+        callbacks=[ProductionLoggingCallback()],
     )
     
     logger.info("Starting production fine-tuning...")
