@@ -153,6 +153,13 @@ def main():
     checkpoints_dir = os.path.join(args.output_dir, "checkpoints")
     os.makedirs(checkpoints_dir, exist_ok=True)
     
+    # Calculate warmup_steps as warmup_ratio is not supported in this transformers version
+    num_samples = len(train_records)
+    steps_per_epoch = max(1, num_samples // train_batch_size)
+    total_steps = steps_per_epoch * epochs
+    warmup_steps = int(total_steps * args.warmup_ratio)
+    logger.info(f"Calculated warmup_steps: {warmup_steps} (based on {total_steps} total steps with warmup_ratio of {args.warmup_ratio})")
+
     # Configure production training args
     training_args = Seq2SeqTrainingArguments(
         output_dir=checkpoints_dir,
@@ -171,7 +178,7 @@ def main():
         greater_is_better=True,
         fp16=use_fp16,
         use_cpu=not cuda_available,
-        warmup_ratio=args.warmup_ratio,
+        warmup_steps=warmup_steps,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         report_to=args.report_to,
         dataloader_num_workers=2 if cuda_available else 0,
